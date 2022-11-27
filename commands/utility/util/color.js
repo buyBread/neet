@@ -1,112 +1,115 @@
+/*
+    Read Image data and determine the most prominent (vibrant) color.
+    Used for the User profile Embed color.
+*/
+
 const { promisify } = require("util")
-const get_pixels = promisify(require('get-pixels'));
 
-// refactor this 5 AM masterpiece pls
-async function get_prominent_color(img) {
-    let color_count = {}
-    let res;
+function rgb_to_hsv(rgb) {
+    const r = rgb.r;
+    const g = rgb.g;
+    const b = rgb.b;
 
-    const is_near = (c1, c2, near = 12) => {
-        if (c1.r - c2.r < near && c1.r - c2.r > -near ||
-            c1.g - c2.g < near && c1.g - c2.g > -near ||
-            c1.b - c2.b < near && c1.b - c2.b > -near)
-        {
-            return true;
-        }
+    const minn = Math.min(r, g, b);
+    const maxx = Math.max(r, g, b);
 
-        return false;
-    }
-
-    const rgb_to_str = (clr) => {
-        return `${clr.r},${clr.g},${clr.b}`
-    }
-
-    const rgb_to_hsv = (rgb) => {
-        let r = rgb.r;
-        let g = rgb.g;
-        let b = rgb.b;
-
-        const minn = Math.min(r, g, b);
-        const maxx = Math.max(r, g, b);
-
-        let val = maxx / 255;
-        let sat = maxx === 0 ? 0 : 1 - minn / maxx;
-        let hue = 0;
-
-        if (maxx - minn != 0) {
-            switch (maxx) {
-                case r: hue = (g - b) / (maxx - minn); break;
-                case g: hue = (b - r) / (maxx - minn) + 2; break;
-                case b: hue = (r - g) / (maxx - minn) + 4; break;
-            }
-
-            hue = hue * 60;
-            hue %= 360;
-        }
-
-        return {
-            h: hue < 0 ? hue + 360 : hue,
-            s: sat * 100,
-            v: val * 100
-        };
-    }
-
-    await get_pixels(img)
-        .then((pixels) => {
-            let cur = { r: -255, g: -255, b: -255 }; // current color that's within range
-            let high_all = null; // vibrant will always be preferred, but this is fallback
-            let high_vibrant = null;
-
-            for (let y = 0; y < pixels.shape[1]; y++)
-            for (let x = 0; x < pixels.shape[0]; x++) {
-                if (pixels.shape[2] > 3) // check if there's an alpha channel
-                    if (pixels.get(x, y, 3) < 50) // check alpha
-                        continue;
-
-                let rgb = {
-                    r: pixels.get(x, y, 0),
-                    g: pixels.get(x, y, 1),
-                    b: pixels.get(x, y, 2)
-                };
-
-                rgb = 123;
-
-                if (is_near(cur, rgb))
-                    color_count[rgb_to_str(cur)].count++;
-                else {
-                    color_count[rgb_to_str(rgb)] = {
-                        rgb: rgb,
-                        count: 1
-                    };
+    let   hue = 0;
+    const sat = maxx === 0 ? 0 : 1 - minn / maxx;
+    const val = maxx / 255;
     
-                    cur = rgb; // go next color if not near
-                }
+    if (maxx - minn != 0) {
+        switch (maxx) {
+            case r: hue = (g - b) / (maxx - minn); break;
+            case g: hue = (b - r) / (maxx - minn) + 2; break;
+            case b: hue = (r - g) / (maxx - minn) + 4; break;
+        }
 
-                if (high_all === null)
-                    high_all = rgb_to_str(cur);
-                else if (color_count[rgb_to_str(cur)].count > color_count[high_all].count)
-                    high_all = rgb_to_str(cur);
+        hue = hue * 60;
+        hue %= 360;
+    }
 
-                let hsv = rgb_to_hsv(cur);
+    return {
+        h: Math.round(hue < 0 ? hue + 360 : hue),
+        s: Math.round(sat * 100),
+        v: Math.round(val * 100),
+    };
+}
 
-                // threshold
-                if (hsv.s >= 65 && hsv.v >= 60 ||
-                    hsv.s >= 35 && hsv.v >= 75) {
-                        if (high_vibrant === null)
-                            high_vibrant = rgb_to_str(cur);
-                        else if (color_count[rgb_to_str(cur)].count > color_count[high_vibrant].count)
-                            high_vibrant = rgb_to_str(cur);
-                    }
-            }
-            
-            if (high_vibrant === null)
-                res = color_count[high_all].rgb
-            else
-                res = color_count[high_vibrant].rgb;
-        })
-    .catch(() => {
-        res = { r: 255, g: 255, b: 255 };
+function is_near_rgb(rgb1, rgb2, near = 12) {
+    let delta_r = rgb1.r - rgb2.r;
+    let delta_g = rgb1.g - rgb2.g;
+    let delta_b = rgb1.b - rgb2.b;
+
+    if (delta_r <= near && delta_r >= -near &&
+        delta_g <= near && delta_g >= -near &&
+        delta_b <= near && delta_b >= -near)
+            return true;
+
+    return false;
+}
+
+function is_vibrant(sat, val) {
+    if (//sat >= 85 && val >= 50 ||
+        sat >= 55 && val >= 65 ||
+        sat >= 45 && val >= 75)
+            return true;
+
+    return false;
+}
+
+async function get_prominent_color(img) {
+    let res = { r: 255, g: 255, b: 255 };
+    let count = []; // total
+
+    const get_pixels = promisify(require('get-pixels'));
+    await get_pixels(img).then((pixels) => {
+        for (let y = 0; y < pixels.shape[1]; y++)
+        for (let x = 0; x < pixels.shape[0]; x++) {
+            if (pixels.shape[2] > 3) // check if alpha exists
+                if (pixels.get(x, y, 3) != 255)
+                    continue; // skip transparent pixels
+
+            let rgb = {
+                r: pixels.get(x, y, 0),
+                g: pixels.get(x, y, 1),
+                b: pixels.get(x, y, 2)
+            };
+
+            let idx = count.findIndex(obj => {
+                return is_near_rgb(rgb, obj.rgb);
+            });
+
+            if (idx === -1) {
+                count.push({
+                    rgb: rgb,
+                    count: 1,
+                });
+            } else
+                count[idx].count++;
+        }
     });
+
+    let highest = count.reduce((prev, cur) => {
+        return prev.count > cur.count ? prev : cur;
+    })
+
+    let vibrant = null;
+
+    for (const color of count) {
+        let hsv = rgb_to_hsv(color.rgb);
+
+        if (is_vibrant(hsv.s, hsv.v)) {
+            if (vibrant === null)
+                vibrant = color;
+            else {
+                if (vibrant.count < color.count)
+                    vibrant = color;
+            }
+        }
+    }
+
+    res = vibrant === null ? 
+        highest.rgb : vibrant.rgb;
 
     return [ res.r, res.g, res.b ];
 }

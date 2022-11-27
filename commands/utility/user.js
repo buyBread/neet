@@ -15,7 +15,7 @@ data:
         const ctx = context.from_interaction(interaction);
 
         const embed = new EmbedBuilder();
-        embed.setThumbnail(ctx.target.user.displayAvatarURL({size: 1024}))
+        embed.setThumbnail(ctx.target.user.displayAvatarURL({size: 2048}))
         embed.setColor(await get_prominent_color(
             ctx.target.user.avatarURL({ 
                 size: 64, extension: "jpg", forceStatic: true})
