@@ -1,3 +1,7 @@
+/*
+    Command loading framework.
+*/
+
 const {
     Events,
     REST,
@@ -9,17 +13,18 @@ const path = require("path");
 class slash_command_manager {
     constructor() {
         this.commands = [];
+        this.groups = {}; // for easier indexing in other operations
 
         client.on(Events.InteractionCreate, async (interaction) => {
             try {
-                function cmp(slash) {
-                    return slash.cmd.data.name === interaction.commandName;
-                }
+                let idx = this.commands.findIndex(cmd => {
+                    return cmd.data.name === interaction.commandName;
+                });
 
-                await (this.commands.find(cmp))
-                    .cmd.execute(interaction);
+                await this.commands[idx].execute(interaction);
             } catch(err) { 
-                await interaction.reply(err);
+                yotsugi.log(err);
+                await interaction.reply("Something went wrong...");
             }
         });
     }
@@ -38,9 +43,22 @@ class slash_command_manager {
             this.commands.push(
                 { 
                     group: group,
-                    cmd: cmd
+                    data: cmd.data,
+                    execute: cmd.execute,
                 }
             );
+
+            try {
+                this.groups[group].push({
+                    data: cmd.data,
+                    execute: cmd.execute,
+                });
+            } catch {
+                this.groups[group] = [{
+                    data: cmd.data,
+                    execute: cmd.execute,
+                }];
+            }   
         }
         
         for (const file of files) {
@@ -77,8 +95,8 @@ class slash_command_manager {
 
             yotsugi.log("-> Creating applicationCommands {/} body.")
 
-            this.commands.forEach((obj) => {
-                res.push(obj.cmd.data.toJSON());
+            this.commands.forEach((cmd) => {
+                res.push(cmd.data.toJSON());
             });
 
             return res;

@@ -124,6 +124,12 @@ function do_auto_color(str) {
 }
 
 function log(msg, auto_color = true) {
+    // instanceof is shy >//< and doesn't fucking work how I want it to work
+    if (typeof msg != "string") {
+        console.log(msg);
+        return;
+    }
+
     msg = msg.split(/\s+/i);
     msg.forEach((str, i) => {
         if (auto_color) {

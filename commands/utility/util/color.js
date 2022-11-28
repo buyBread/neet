@@ -58,7 +58,7 @@ function is_vibrant(sat, val) {
 }
 
 async function get_prominent_color(img) {
-    let res = { r: 255, g: 255, b: 255 };
+    let res;
     let count = []; // total
 
     const get_pixels = promisify(require('get-pixels'));

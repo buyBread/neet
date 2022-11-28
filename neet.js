@@ -131,7 +131,7 @@ const main = async () => {
 
     require("./event_handler");
 
-    client.login(config.json["token"]);
+    await client.login(config.json["token"]);
 }
 
 main().then(() => {

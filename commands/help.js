@@ -1,5 +1,9 @@
 const { SlashCommandBuilder, EmbedBuilder } = require('discord.js');
 
+function command_format(cmd) {
+    return `**${cmd.data.name}** ~ ${cmd.data.description}\n`;
+}
+
 module.exports = {
 data: 
 
@@ -8,49 +12,35 @@ data:
         .setDescription("Shows all commands."),
 
     async execute(interaction) {
-        let groups = {};
-
-        command_manager.commands
-            .forEach((obj, _) => {
-                let group = obj.group;
-
-                if (group != "none") {
-                    try {
-                        groups.find(element => element == group)
-                    } catch { 
-                        groups[group] = [];
-                    }
-                    
-                    groups[group].push({
-                        "name": obj.cmd.data.name,
-                        "description": obj.cmd.data.description
-                    });
-                }
-            });
-
-        const embed = new EmbedBuilder() // default color
-            .setThumbnail(client.user.avatarURL({size: 512}))
+        const embed = new EmbedBuilder()
+            .setColor(0x2F3136)
+            .setThumbnail(client.user.avatarURL({size: 2048}))
             .setTitle("Help 📝");
 
-        for (const [k, v] of Object.entries(groups)) {
-            let cmds = "";
+        for (const [group, commands] of Object.entries(command_manager.groups)) {
+            if (group === "none")
+                continue; // "help" is the only command without a group
 
-            v.forEach((cmd, _) => {
-                cmds += `**${cmd["name"]}**`;
-                cmds += " ~ ";
-                cmds += cmd["description"];
-                cmds += "\n";
+            let group_name = group.charAt(0).toUpperCase() + group.slice(1);
+
+            embed.addFields({
+                name: group_name,
+                value: "placeholder",
+                inline: false,
             });
-
-            embed.addFields(
-                {
-                    name: k.charAt(0).toUpperCase() + k.slice(1),
-                    value: cmds,
-                    inline: false
-                }
-            );
+    
+            let idx = embed.data.fields.findIndex(field => {
+                return field.name === group_name;
+            })
+    
+            // EmbedBuilder doesn't allow "unsafe" behaviour
+            embed.data.fields[idx].value = "";
+    
+            for (const cmd of commands) {
+                embed.data.fields[idx].value += command_format(cmd);
+            }
         }
 
         await interaction.reply({embeds: [ embed ]});
     }
-};
+}
