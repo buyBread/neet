@@ -5,9 +5,7 @@ function command_format(cmd) {
 }
 
 module.exports = {
-data: 
-
-    new SlashCommandBuilder()
+    data: new SlashCommandBuilder()
         .setName("help")
         .setDescription("Shows all commands."),
 
@@ -15,7 +13,7 @@ data:
         const embed = new EmbedBuilder()
             .setColor(0x2F3136)
             .setThumbnail(client.user.avatarURL({size: 2048}))
-            .setTitle("Help 📝");
+            .setTitle("Available Commands");
 
         for (const [group, commands] of Object.entries(command_manager.groups)) {
             if (group === "none")

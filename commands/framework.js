@@ -29,8 +29,12 @@ class slash_command_manager {
         });
     }
 
-    async gather_commands() {
+    async gather_slash_commands() {
         yotsugi.log("Gathering commands from folders.");
+
+        // reset
+        this.commands = [];
+        this.groups = {};
 
         const files = await fs.promises.readdir(
             __dirname).catch((e) => {

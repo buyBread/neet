@@ -1,32 +1,34 @@
 global.context = {};
 
-function from_interaction(inter) {
-    let guild = inter.guild;
-    let author = guild ? inter.member : inter.user;
-    let user = inter.options.get("user"); // incase 
-    let member = null;
-    // let cmd = inter.command;
-    let channel = inter.channel;
+async function from_interaction(inter) {
+    let res = {}
 
-    if (user == null)
-        user = guild ? 
-            inter.member : inter.user;
-    else
-        user = guild ?
-            user["member"] : user["user"];
+    res.guild = inter.guild;
+    res.channel = inter.channel;
+    res.author = res.guild ? inter.member : inter.user;
+    res.options = inter.options;
+    res.target = {
+        user: null,
+        member: null,
+    };
 
-    if (guild) {
-        member = user;
-        user   = user.user;
+    let opt_user = res.options.get("user");
+
+    if (opt_user) {
+        if (res.guild) {
+            res.target.user   = opt_user.member.user;
+            res.target.member = opt_user.member;
+        } else
+            res.target.user = opt_user.user;
+    } else { // target is the author
+        if (res.guild) {
+            res.target.user   = res.author.user;
+            res.target.member = res.author
+        } else
+            res.target.user = res.author;
     }
 
-    return {
-        author,
-        target: { user: user, member: member }, 
-        guild,
-        channel,
-        self: global.client
-    };
+    return res;
 }
 
 context.from_interaction = from_interaction;

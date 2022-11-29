@@ -113,7 +113,7 @@ const main = async () => {
         throw err;
     });
 
-    await command_manager.gather_commands()
+    await command_manager.gather_slash_commands()
         .then(() => {
             yotsugi.log("Commands gathered.")
         })

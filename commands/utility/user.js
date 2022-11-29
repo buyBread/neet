@@ -2,9 +2,7 @@ const { get_prominent_color } = require("./util/color");
 const { SlashCommandBuilder, EmbedBuilder } = require("discord.js");
 
 module.exports = {
-data:
-
-    new SlashCommandBuilder()
+    data: new SlashCommandBuilder()
         .setName("user")
         .setDescription("Displays a User's information.")
         .addUserOption(
@@ -12,7 +10,7 @@ data:
                         .setDescription("Select a User or enter their ID.")),
 
     async execute(interaction) {
-        const ctx = context.from_interaction(interaction);
+        const ctx = await context.from_interaction(interaction);
 
         const embed = new EmbedBuilder();
         embed.setThumbnail(ctx.target.user.displayAvatarURL({size: 2048}))
@@ -52,5 +50,4 @@ data:
 
         await interaction.reply({embeds: [ embed ]});
     }
-
 };
