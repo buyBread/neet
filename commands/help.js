@@ -35,8 +35,12 @@ module.exports = {
             embed.data.fields[idx].value = "";
     
             for (const cmd of commands) {
-                embed.data.fields[idx].value += command_format(cmd);
+                if (!cmd.hidden)
+                    embed.data.fields[idx].value += command_format(cmd);
             }
+
+            if (embed.data.fields[idx].value === "")
+                embed.data.fields.pop(idx);
         }
 
         await interaction.reply({embeds: [ embed ]});

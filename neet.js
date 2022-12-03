@@ -29,6 +29,7 @@ async function setup_config() {
                 config.fp + "/" + fname,
                 JSON.stringify({ 
                     "token": "",
+                    "owner_id": "",
                     "app_id": "",
                     "status": "online",
                     "activity": "3",

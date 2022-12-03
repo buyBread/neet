@@ -15,6 +15,8 @@ class slash_command_manager {
         this.commands = [];
         this.groups = {}; // for easier indexing in other operations
 
+        this.unloaded = [];
+
         client.on(Events.InteractionCreate, async (interaction) => {
             try {
                 let idx = this.commands.findIndex(cmd => {
@@ -41,7 +43,10 @@ class slash_command_manager {
                 throw e;
             });
     
-        const add_command = (cmd, group = "none") => {
+        const add_command = (cmd, group = "none", hidden = false) => {
+            if (!("data" in cmd) || !("execute" in cmd))
+                return;
+
             yotsugi.log(`-> Adding Command: \"${cmd.data.name}\", Group: \"${group}\".`)
     
             this.commands.push(
@@ -49,6 +54,7 @@ class slash_command_manager {
                     group: group,
                     data: cmd.data,
                     execute: cmd.execute,
+                    hidden: hidden,
                 }
             );
 
@@ -56,11 +62,13 @@ class slash_command_manager {
                 this.groups[group].push({
                     data: cmd.data,
                     execute: cmd.execute,
+                    hidden: hidden,
                 });
             } catch {
                 this.groups[group] = [{
                     data: cmd.data,
                     execute: cmd.execute,
+                    hidden: hidden,
                 }];
             }   
         }
@@ -71,19 +79,21 @@ class slash_command_manager {
 
             let fp = __dirname + "/" + file;
     
-            if (path.extname(fp) == ".js") {
-                const cmd = require(fp);
-    
-                if (!("data" in cmd) || !("execute" in cmd))
-                    throw `${fp} has no "data" or "execute" property.`
-    
-                add_command(cmd);
-            } else {
-                if ((await fs.promises.stat(fp)).isDirectory()) // check if directory
+            if (path.extname(fp) == ".js")
+                add_command(require(fp));
+            else {
+                if ((await fs.promises.stat(fp)).isDirectory()) { // check if directory
+                    let hidden = false;
+
                     for (const cmd of await fs.promises.readdir(fp)) {
-                        if (path.extname(fp + "/" + cmd) == ".js")
-                            add_command(require(fp + "/" + cmd), file); // pass `file` as group
+                        if (cmd === ".hidden")
+                            hidden = true;
+                        else {
+                            if (path.extname(fp + "/" + cmd) == ".js")
+                                add_command(require(fp + "/" + cmd), file, hidden); // pass `file` as group
+                        }
                     }
+                }
             }
         }
     }
@@ -110,6 +120,59 @@ class slash_command_manager {
             Routes.applicationCommands(config.json["app_id"]),
             { body: create_commands_body() }
         );
+    }
+
+    async load_command(command_name) {
+        const idx = this.unloaded.findIndex(cmd => {
+            return cmd.data.name === command_name;
+        });
+
+        if (idx === -1)
+            return false;
+
+        const backup = this.unloaded[idx];
+
+        this.commands.push(backup);
+        this.groups[backup.group].push({
+            data: backup.data,
+            execute: backup.execute,
+            hidden: backup.hidden,
+        });
+
+        await this.refresh_slash_commands()
+            .then(() => {
+                yotsugi.log("{/} refreshed.")
+            });
+
+        this.unloaded.splice(idx, 1);
+
+        return true;
+    }
+
+    async unload_command(command_name) {
+        const idx = this.commands.findIndex(cmd => {
+            return cmd.data.name === command_name;
+        });
+
+        if (idx === -1)
+            return false;
+
+        const backup = this.commands[idx];
+
+        this.commands.splice(idx, 1);
+        this.groups[backup.group].splice(
+            this.groups[backup.group].findIndex(cmd => {
+                return cmd.data.name === command_name;
+        }), 1);
+
+        await this.refresh_slash_commands()
+            .then(() => {
+                yotsugi.log("{/} refreshed.")
+            });
+
+        this.unloaded.push(backup);
+
+        return true;
     }
 }
 
